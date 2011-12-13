@@ -1,0 +1,165 @@
+<?xml version="1.0"?>
+<!DOCTYPE modification SYSTEM "http://www.simplemachines.org/xml/modification">
+<!--
+	ATTENTION: If you are trying to install this manually, you should try
+	the package manager.  If it will not work for you, please take a look
+	at the following for information on this format:
+	http://mods.simplemachines.org/docs/manual-install.php
+-->
+
+<modification xmlns="http://www.simplemachines.org/xml/modification" xmlns:smf="http://www.simplemachines.org/">
+	<id>LukyLuke:PPSGravatar</id>
+	<version>0.1.1</version>
+
+	<file name="$sourcedir/LogInOut.php">
+		<operation>
+			<search position="before"><![CDATA[	$request = $smcFunc['db_query']('', '
+		SELECT passwd, id_member, id_group, lngfile, is_activated, email_address, additional_groups, member_name, password_salt,
+			openid_uri, passwd_flood]]></search>
+			<add><![CDATA[,avatar]]></add>
+		</operation>
+		<operation>
+			<search position="before"><![CDATA[		$request = $smcFunc['db_query']('', '
+			SELECT passwd, id_member, id_group, lngfile, is_activated, email_address, additional_groups, member_name, password_salt, openid_uri,
+			passwd_flood]]></search>
+			<add><![CDATA[,avatar]]></add>
+		</operation>
+		<operation>
+			<search position="before"><![CDATA[updateMemberData($user_info['id'], array('last_login' => time(), 'member_ip' => $user_info['ip'], 'member_ip2' => $_SERVER['BAN_CHECK_IP']));]]></search>
+			<add><![CDATA[
+	if ($user_settings['avatar'] == 'ppsgravatar') {
+		require_once($sourcedir . '/PPSGravatar.php');
+		smf_ppsgravatar_download($user_settings['id_member']);
+	}
+]]></add>
+		</operation>
+	</file>
+
+	<file name="$sourcedir/Load.php">
+		<operation>
+			<search position="before"><![CDATA[		'local_time' => timeformat(time() + ($profile['time_offset'] - $user_info['time_offset']) * 3600, false),
+	);]]></search>
+			<add><![CDATA[
+	if ($memberContext[$user]['avatar']['name'] == 'ppsgravatar') {
+		$memberContext[$user]['avatar']['image'] = '<img class="avatar" src="'.$scripturl.'?action=dlattach;attach='.$profile['id_attach'].';type=avatar" alt="" />';
+		$memberContext[$user]['avatar']['href'] = $scripturl.'?action=dlattach;attach='.$profile['id_attach'].';type=avatar';
+		$memberContext[$user]['avatar']['url'] = '';
+	}
+]]></add>
+		</operation>
+	</file>
+
+	<file name="$sourcedir/Subs.php">
+		<operation>
+			<search position="after"><![CDATA[}
+		// Otherwise we assume it's server stored?
+		elseif ($user_info['avatar']['url'] != '')
+			$context['user']['avatar']['href'] = $modSettings['avatar_url'] . '/' . htmlspecialchars($user_info['avatar']['url']);]]></search>
+			<add><![CDATA[}
+		elseif ($user_info['avatar']['url'] == 'ppsgravatar') {
+			$context['user']['avatar']['href'] = $scripturl . '?action=dlattach;attach=' . $user_info['avatar']['id_attach'] . ';type=avatar';
+]]></add>
+		</operation>
+	</file>
+
+	<file name="$sourcedir/Profile-Modify.php">
+		<operation>
+			<search position="before"><![CDATA[
+		'allow_server_stored' => allowedTo('profile_server_avatar') || (!$context['user']['is_owner'] && allowedTo('profile_extra_any')),
+		'allow_upload' => allowedTo('profile_upload_avatar') || (!$context['user']['is_owner'] && allowedTo('profile_extra_any')),
+		'allow_external' => allowedTo('profile_remote_avatar') || (!$context['user']['is_owner'] && allowedTo('profile_extra_any')),]]></search>
+			<add><![CDATA[
+		'allow_ppsgravatar' => 1,]]></add>
+		</operation>
+		<operation>
+			<search position="after"><![CDATA[	else
+		$context['member']['avatar'] += array(
+			'choice' => 'none',
+			'server_pic' => 'blank.gif',
+			'external' => 'http://'
+		);]]></search>
+			<add><![CDATA[	else if ($cur_profile['avatar'] == 'ppsgravatar')
+		$context['member']['avatar'] += array(
+			'choice' => 'ppsgravatar',
+			'server_pic' => 'blank.gif',
+			'external' => 'http://'
+		);
+]]></add>
+		</operation>
+		<operation>
+			<search position="after"><![CDATA[	}
+	else
+		$profile_vars['avatar'] = '';]]></search>
+			<add><![CDATA[
+	}
+	elseif ($value == 'ppsgravatar')
+	{
+		require_once($sourcedir . '/PPSGravatar.php');
+		smf_ppsgravatar_download($memID);
+]]></add>
+		</operation>
+	</file>
+
+	<file name="$themedir/Profile.template.php">
+		<operation>
+			<search position="before"><![CDATA[
+								', !empty($context['member']['avatar']['allow_upload']) ? '<input type="radio" onclick="swap_avatar(this); return true;" name="avatar_choice" id="avatar_choice_upload" value="upload"' . ($context['member']['avatar']['choice'] == 'upload' ? ' checked="checked"' : '') . ' class="input_radio" /><label for="avatar_choice_upload"' . (isset($context['modify_error']['bad_avatar']) ? ' class="error"' : '') . '>' . $txt['avatar_will_upload'] . '</label>' : '', ']]></search>
+			<add><![CDATA[
+								', !empty($context['member']['avatar']['allow_ppsgravatar']) ? '<br/><input type="radio" onclick="swap_avatar(this); return true;" name="avatar_choice" id="avatar_choice_ppsgravatar" value="ppsgravatar"' . ($context['member']['avatar']['choice'] == 'ppsgravatar' ? ' checked="checked"' : '') . ' class="input_radio" /><label for="avatar_choice_ppsgravatar"' . (isset($context['modify_error']['bad_avatar']) ? ' class="error"' : '') . '>Secure PPS-Gravatar</label>' : '', ']]></add>
+		</operation>
+		<operation>
+			<search position="before"><![CDATA[	if (!empty($context['member']['avatar']['allow_upload']))
+	{
+		echo '
+								<div id="avatar_upload">
+									<input type="file" size="44" name="attachment" value="" onfocus="selectRadioByName(document.forms.creator.avatar_choice, \'upload\');" class="input_file" />
+									', ($context['member']['avatar']['id_attach'] > 0 ? '<br /><br /><img src="' . $context['member']['avatar']['href'] . (strpos($context['member']['avatar']['href'], '?') === false ? '?' : '&amp;') . 'time=' . time() . '" alt="" /><input type="hidden" name="id_attach" value="' . $context['member']['avatar']['id_attach'] . '" />' : ''), '
+								</div>';
+	}]]></search>
+			<add><![CDATA[
+
+	if (!empty($context['member']['avatar']['allow_ppsgravatar'])) {
+		echo '
+								<div id="avatar_ppsgravatar">', $txt['ppsgravatar_profile_message'] ,'</div>';
+	}
+]]></add>
+		</operation>
+		<operation>
+			<search position="before"><![CDATA[
+									', !empty($context['member']['avatar']['allow_upload']) ? 'document.getElementById("avatar_upload").style.display = "' . ($context['member']['avatar']['choice'] == 'upload' ? '' : 'none') . '";' : '', ']]></search>
+			<add><![CDATA[
+									', !empty($context['member']['avatar']['allow_ppsgravatar']) ? 'document.getElementById("avatar_ppsgravatar").style.display = "' . ($context['member']['avatar']['choice'] == 'ppsgravatar' ? '' : 'none') . '";' : '', '
+]]></add>
+		</operation>
+		<operation>
+			<search position="before"><![CDATA[
+									function swap_avatar(type)
+									{]]></search>
+			<add><![CDATA[
+										// It is easier to hide all here than to change the stupid switch below
+										', !empty($context['member']['avatar']['allow_ppsgravatar']) ? 'document.getElementById("avatar_ppsgravatar").style.display = type.id=="avatar_choice_ppsgravatar" ? "" : "none";' : '', '
+										', !empty($context['member']['avatar']['allow_server_stored']) ? 'document.getElementById("avatar_server_stored").style.display = "none";' : '', '
+										', !empty($context['member']['avatar']['allow_external']) ? 'document.getElementById("avatar_external").style.display = "none";' : '', '
+										', !empty($context['member']['avatar']['allow_upload']) ? 'document.getElementById("avatar_upload").style.display = "none";' : '', '
+]]></add>
+		</operation>
+	</file>
+
+	<file name="$languagedir/Modifications.english.php">
+		<operation>
+			<search position="after"><![CDATA[?>]]></search>
+			<add><![CDATA[
+$txt['ppsgravatar_profile_message'] = 'Your Avatar is fetched everytime you Login to this Forum from http://www.gravatar.com/. Your Email is the Gravatar-ID.';
+]]></add>
+		</operation>
+	</file>
+
+	<file name="$languagedir/Modifications.german.php">
+		<operation error="skip">
+			<search position="after"><![CDATA[?>]]></search>
+			<add><![CDATA[
+$txt['ppsgravatar_profile_message'] = 'Der Avatar wird bei jedem Login bei diesem Forum heruntergeladen von http://www.gravatar.com/. Die EMail-Adresse wird als Gravatar-ID verwendet.';
+]]></add>
+		</operation>
+	</file>
+</modification>
